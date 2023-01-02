@@ -5,7 +5,7 @@ This project aims to reconstruct the graph of [Mastodon](https://joinmastodon.or
 ## Requirements
 
 This project requires Python 3.6+ (for `asyncio` support), [`aiohttp`](https://docs.aiohttp.org/en/stable/) to make asynchronous HTTP requests and [`asyncio-throttle`](https://github.com/hallazzang/asyncio-throttle) to limit the request rate.
-These libraries can be installed using
+These libraries can be installed using:
 ```sh
 pip install aiohttp aiodns asyncio-throttle
 ```
