@@ -1,6 +1,6 @@
 # graphodon
 
-This project aims to reconstruct the graph of [Mastodon](https://joinmastodon.org/) users using the [API](https://docs.joinmastodon.org/methods/).
+This project aims to reconstruct the graph of [Mastodon](https://joinmastodon.org/) users using only the [API](https://docs.joinmastodon.org/methods/).
 
 ## Requirements
 
@@ -21,7 +21,7 @@ pip install aiohttp aiodns asyncio-throttle
 - [x] Collect the subscriptions of a user
     - [ ] Send multiple requests when the number of subscriptions is too big for a single request
     - [ ] Handle authorization tokens
-- [ ] Construct the graphs of multiple instances
+- [ ] Reconstruct the graphs of multiple instances
     - [ ] Collect instances addresses
     - [ ] Handle offline/private instances
     - [ ] Use multiple threads
