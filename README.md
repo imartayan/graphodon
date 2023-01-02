@@ -12,6 +12,9 @@ pip install aiohttp aiodns asyncio-throttle
 
 ## Limitations
 
+- We can only collect [discoverable](https://docs.joinmastodon.org/entities/Account/#discoverable) accounts, so the graph we obtain is only partial.
+- Due to [rate limits](https://docs.joinmastodon.org/api/rate-limits/), Mastodon servers only accept up to 300 requests within 5 minutes from a given IP. This makes the reconstruction of large instances considerably slower.
+
 ## Roadmap
 
 - [x] Collect the public profiles of an instance
