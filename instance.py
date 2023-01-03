@@ -1,5 +1,6 @@
 from asyncio import gather
 from asyncio_throttle import Throttler
+from datetime import datetime
 import aiohttp
 import aiofiles
 import json
@@ -10,6 +11,7 @@ class Instance:
         self.domain = domain
         self._base_url = "https://" + domain
         self.debug = debug
+        self.timestamp = datetime.now()
         self.user_count = None
         self.users = {}
         self._session = None
@@ -21,6 +23,7 @@ class Instance:
         async with aiofiles.open(filename, mode="r") as file:
             data = json.loads(await file.read())
             instance = Instance(data["domain"])
+            instance.timestamp = datetime.fromisoformat(data["timestamp"])
             instance.user_count = data["user_count"]
             instance.users = data["users"]
             return instance
@@ -29,6 +32,7 @@ class Instance:
         async with aiofiles.open(filename, mode="w+") as file:
             data = {
                 "domain": self.domain,
+                "timestamp": self.timestamp.isoformat(sep=" ", timespec="minutes"),
                 "user_count": self.user_count,
                 "users": self.users,
             }
@@ -144,6 +148,7 @@ class Instance:
             ]
             for username in usernames:
                 self.users[username]["following"] = []
+            self.timestamp = datetime.now()
             await gather(*[self._get_following(username) for username in usernames])
         finally:
             if create_session:
