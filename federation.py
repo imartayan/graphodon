@@ -16,7 +16,6 @@ class Federation:
         self._debug = debug
         self.domains = {}
         self.instances = {}
-        self._tasks = []
         self.users = {}
 
     async def load_domains(self, filename=None):
@@ -40,8 +39,7 @@ class Federation:
             user_count = instance["users"]
             if not isinstance(user_count, int):
                 continue
-            if 10 <= user_count <= 20:
-                self.domains[domain] = user_count
+            self.domains[domain] = user_count
         if self._debug:
             print(f"{len(self.domains)} domains")
 
@@ -53,13 +51,16 @@ class Federation:
                     print(f"{domain} in cache")
                 async with semaphore:
                     self.instances[domain] = await Instance.from_json(file)
-                return
+                return None
         self.instances[domain] = Instance(domain, debug=self._debug)
-        self._tasks.append(domain)
+        return domain
 
     async def _init_instances(self, domains, max_open=200):
         semaphore = Semaphore(max_open)
-        await gather(*[self._init_instance(semaphore, domain) for domain in domains])
+        tasks = await gather(
+            *[self._init_instance(semaphore, domain) for domain in domains]
+        )
+        return [task for task in tasks if task is not None]
 
     async def _fetch_instance(self, session, domain):
         instance = self.instances[domain]
@@ -85,19 +86,20 @@ class Federation:
     def _process_instances(self, domains):
         run(self._fetch_many_instances(domains))
 
-    def fetch_all(self, cache_only=False):
-        if not self.domains:
-            run(self.load_domains())
-        run(self._init_instances(self.domains.keys()))
+    def fetch(self, domains, cache_only=False):
+        tasks = run(self._init_instances(domains))
         if cache_only:
             return
         cpus = cpu_count()
         with Pool(processes=cpus) as pool:
-            N = len(self._tasks)
-            buckets = [
-                self._tasks[i * N // cpus : (i + 1) * N // cpus] for i in range(cpus)
-            ]
+            N = len(tasks)
+            buckets = [tasks[i * N // cpus : (i + 1) * N // cpus] for i in range(cpus)]
             pool.map(self._process_instances, buckets)
+
+    def fetch_all(self, cache_only=False):
+        if not self.domains:
+            run(self.load_domains())
+        self.fetch(list(self.domains.keys()), cache_only=cache_only)
 
     def merge_all(self):
         if not self.instances:
