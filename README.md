@@ -22,7 +22,7 @@ pip install aiohttp aiodns aiofiles asyncio-throttle
     - [x] Send requests asynchronously
     - [x] Respect the limit rate of the server
 - [x] Collect the subscriptions of a user
-    - [ ] Send multiple requests when the number of subscriptions is too big for a single request
+    - [x] Send multiple requests when the number of subscriptions is too big for a single request
     - [ ] Handle authorization tokens
 - [x] Reconstruct the graphs of multiple instances
     - [x] Collect instances addresses
