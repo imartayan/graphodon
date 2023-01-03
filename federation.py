@@ -77,7 +77,7 @@ class Federation:
             instance._session = None
 
     async def _fetch_many_instances(self, domains):
-        timeout = aiohttp.ClientTimeout(total=30, sock_connect=5)
+        timeout = aiohttp.ClientTimeout(sock_connect=5)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             await gather(*[self._fetch_instance(session, domain) for domain in domains])
 
