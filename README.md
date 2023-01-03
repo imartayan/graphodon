@@ -29,5 +29,5 @@ pip install aiohttp aiodns aiofiles asyncio-throttle
     - [x] Use multiple threads
     - [x] Handle unreachable instances
     - [x] Cache the reconstructed graphs
-    - [ ] Merge the graphs
+    - [x] Merge the graphs
 - [ ] Provide a visualization tool
