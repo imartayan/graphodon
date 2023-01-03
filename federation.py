@@ -1,5 +1,6 @@
-from multiprocessing import Pool, cpu_count
-from asyncio import gather, run
+from multiprocessing import cpu_count, Pool
+from asyncio import gather, run, Semaphore
+from pathlib import Path
 import aiohttp
 import json
 from instance import Instance
@@ -7,10 +8,15 @@ from instance import Instance
 
 class Federation:
     def __init__(self, cache=None, debug=False):
-        self.cache = cache
+        if cache:
+            self.cache = Path.cwd().joinpath(cache)
+            self.cache.mkdir(parents=True, exist_ok=True)
+        else:
+            self.cache = None
         self.debug = debug
-        self._catalog = {}
+        self.catalog = {}
         self.instances = {}
+        self.tasks = []
 
     async def load_instance_list(self, filename=None):
         if filename:
@@ -31,36 +37,47 @@ class Federation:
                 continue
             domain = instance["name"]
             user_count = instance["users"]
-            if "@" in domain or "/" in domain:
-                if self.debug:
-                    print("Invalid domain", domain)
-                continue
             if not isinstance(user_count, int):
-                if self.debug:
-                    print("Unknown user count", domain)
                 continue
-            if 12 <= user_count <= 12:
-                self._catalog[domain] = user_count
+            if 10 <= user_count <= 20:
+                self.catalog[domain] = user_count
         if self.debug:
-            print(f"{len(self._catalog)} valid domains")
+            print(f"{len(self.catalog)} valid domains")
+
+    async def _init_instance(self, semaphore, domain):
+        if self.cache:
+            file = self.cache.joinpath(domain + ".json")
+            if file.exists():
+                if self.debug:
+                    print(f"{domain} cached")
+                async with semaphore:
+                    self.instances[domain] = await Instance.from_json(file)
+                return
+        self.instances[domain] = Instance(domain, debug=self.debug)
+        self.tasks.append(domain)
+
+    async def _init_instances(self, domains, maxopen=200):
+        semaphore = Semaphore(maxopen)
+        await gather(*[self._init_instance(semaphore, domain) for domain in domains])
 
     async def _fetch_instance(self, session, domain):
         instance = self.instances[domain]
         instance._session = session
         try:
             await instance.fetch_users(create_session=False)
-            await instance.build_graph()
-            self.instances[domain] = instance
-            if self.cache:
-                await instance.export_json(self.cache + "/" + domain + ".json")
-            print(domain, "done")
+            if instance.users:
+                await instance.build_graph(create_session=True)
+                if self.cache:
+                    await instance.export_json(self.cache.joinpath(domain + ".json"))
+            if self.debug:
+                print(f"{domain} fetched")
         except Exception:
             pass
         finally:
             instance._session = None
 
     async def _fetch_many_instances(self, domains):
-        timeout = aiohttp.ClientTimeout(sock_connect=5)
+        timeout = aiohttp.ClientTimeout(total=30, sock_connect=5)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             await gather(*[self._fetch_instance(session, domain) for domain in domains])
 
@@ -68,14 +85,11 @@ class Federation:
         run(self._fetch_many_instances(domains))
 
     def fetch_instances(self):
-        tasks = []
-        for domain in self._catalog:
-            if self.cache:
-                pass
-            self.instances[domain] = Instance(domain, debug=self.debug)
-            tasks.append(domain)
+        run(self._init_instances(self.catalog.keys()))
         cpus = cpu_count()
         with Pool(processes=cpus) as pool:
-            N = len(tasks)
-            buckets = [tasks[i * N // cpus : (i + 1) * N // cpus] for i in range(cpus)]
+            N = len(self.tasks)
+            buckets = [
+                self.tasks[i * N // cpus : (i + 1) * N // cpus] for i in range(cpus)
+            ]
             pool.map(self._process_instances, buckets)
