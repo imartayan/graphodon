@@ -17,6 +17,7 @@ class Federation:
         self.domains = {}
         self.instances = {}
         self._tasks = []
+        self.users = {}
 
     async def load_domains(self, filename=None):
         if filename:
@@ -84,10 +85,12 @@ class Federation:
     def _process_instances(self, domains):
         run(self._fetch_many_instances(domains))
 
-    def fetch_all(self):
+    def fetch_all(self, cache_only=False):
         if not self.domains:
             run(self.load_domains())
         run(self._init_instances(self.domains.keys()))
+        if cache_only:
+            return
         cpus = cpu_count()
         with Pool(processes=cpus) as pool:
             N = len(self._tasks)
@@ -95,3 +98,9 @@ class Federation:
                 self._tasks[i * N // cpus : (i + 1) * N // cpus] for i in range(cpus)
             ]
             pool.map(self._process_instances, buckets)
+
+    def merge_all(self):
+        if not self.instances:
+            self.fetch_all()
+        for instance in self.instances.values():
+            self.users |= instance.users
