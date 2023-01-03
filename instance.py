@@ -66,14 +66,14 @@ class Instance:
                 else:
                     self._handle_error(response)
 
-    async def _get_directory(self, offset, maxsize=80):
+    async def _get_directory(self, offset, max_size=80):
         """
         https://docs.joinmastodon.org/methods/directory/#get
         """
         if self.debug:
             print(f"({self.domain}) get dir {offset}")
         url = self._endpoint("/api/v1/directory")
-        params = {"offset": offset, "limit": maxsize, "order": "new", "local": "true"}
+        params = {"offset": offset, "limit": max_size, "order": "new", "local": "true"}
         async with self._throttler:
             async with self._session.get(url=url, params=params) as response:
                 if response.ok:
@@ -88,16 +88,18 @@ class Instance:
                 else:
                     self._handle_error(response)
 
-    async def _get_following(self, username, url=None, maxsize=80):
+    async def _get_following(self, username, max_id=None, max_size=80):
         """
         https://docs.joinmastodon.org/methods/accounts/#following
         """
         if self.debug:
             print(f"({self.domain}) get user {username}")
         user_id = self.users[username]["id"]
-        if url is None:
-            url = self._endpoint("/api/v1/accounts/" + user_id + "/following")
-        params = {"limit": maxsize}
+        url = self._endpoint("/api/v1/accounts/" + user_id + "/following")
+        params = {"limit": max_size}
+        if max_id:
+            params["max_id"] = max_id
+        next_id = None
         async with self._throttler:
             async with self._session.get(url=url, params=params) as response:
                 if response.ok:
@@ -111,10 +113,16 @@ class Instance:
                             for u in following
                         ]
                         self.users[username]["following"] += usernames
-                        if len(following) == maxsize:
-                            pass
+                        if len(following) == max_size and "Link" in response.headers:
+                            link = response.headers["Link"]
+                            if "max_id=" in link:
+                                next_id = int(
+                                    link.partition("max_id=")[2].partition(">")[0]
+                                )
                 else:
                     self._handle_error(response)
+        if next_id:
+            await self._get_following(username, max_id=next_id, max_size=max_size)
 
     async def fetch_users(self, create_session=True):
         if create_session:
@@ -122,11 +130,11 @@ class Instance:
             self._session = aiohttp.ClientSession(base_url=self._base_url)
         try:
             await self._get_info()
-            maxsize = 80
+            max_size = 80
             await gather(
                 *[
-                    self._get_directory(offset, maxsize)
-                    for offset in range(0, self.user_count, maxsize)
+                    self._get_directory(offset, max_size)
+                    for offset in range(0, self.user_count, max_size)
                 ]
             )
         finally:
