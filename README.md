@@ -4,7 +4,7 @@ This project aims to reconstruct the graph of [Mastodon](https://joinmastodon.or
 
 ## Requirements
 
-This project requires Python 3.6+ (for `asyncio` support), [`aiohttp`](https://docs.aiohttp.org/en/stable/) to make asynchronous HTTP requests and [`asyncio-throttle`](https://github.com/hallazzang/asyncio-throttle) to limit the request rate.
+This project requires Python 3.7+ (for `asyncio` support), [`aiohttp`](https://docs.aiohttp.org/en/stable/) to make asynchronous HTTP requests, [`aiofiles`](https://github.com/Tinche/aiofiles) for asynchronous file operations and [`asyncio-throttle`](https://github.com/hallazzang/asyncio-throttle) to limit the request rate.
 These libraries can be installed using:
 ```sh
 pip install aiohttp aiodns asyncio-throttle
@@ -24,9 +24,9 @@ pip install aiohttp aiodns asyncio-throttle
 - [x] Collect the subscriptions of a user
     - [ ] Send multiple requests when the number of subscriptions is too big for a single request
     - [ ] Handle authorization tokens
-- [ ] Reconstruct the graphs of multiple instances
-    - [ ] Collect instances addresses
-    - [ ] Handle offline/private instances
-    - [ ] Use multiple threads
+- [x] Reconstruct the graphs of multiple instances
+    - [x] Collect instances addresses
+    - [x] Use multiple threads
+    - [ ] Handle unreachable instances
     - [ ] Merge the graphs
 - [ ] Provide a visualization tool
