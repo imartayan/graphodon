@@ -1,6 +1,7 @@
 from asyncio import gather
 from asyncio_throttle import Throttler
 import aiohttp
+import aiofiles
 import json
 
 
@@ -12,45 +13,34 @@ class Instance:
         self.user_count = None
         self.users = {}
         self._session = None
-        self._handle_session = False
         self._throttler = Throttler(
             rate_limit=300, period=300, retry_interval=1
         )  # https://docs.joinmastodon.org/api/rate-limits/
 
-    def from_json(filename):
-        with open(filename, "r") as file:
-            data = json.load(file)
+    async def from_json(filename):
+        async with aiofiles.open(filename, mode="r") as file:
+            data = json.loads(await file.read())
             instance = Instance(data["domain"])
             instance.user_count = data["user_count"]
             instance.users = data["users"]
             return instance
 
-    def export_json(self, filename):
-        with open(filename, "w+") as file:
+    async def export_json(self, filename):
+        async with aiofiles.open(filename, mode="w+") as file:
             data = {
                 "domain": self.domain,
                 "user_count": self.user_count,
                 "users": self.users,
             }
-            json.dump(data, file)
+            await file.write(json.dumps(data))
 
     def _endpoint(self, endpoint):
         if self._session is None or self._session._base_url is None:
             return self._base_url + endpoint
         return endpoint
 
-    def _init_session(self):
-        if self._session is None:
-            self._session = aiohttp.ClientSession(base_url=self._base_url)
-            self._handle_session = True
-
-    async def _close_session(self):
-        if self._handle_session:
-            await self._session.close()
-            self._session = None
-
     def _handle_error(self, response):
-        print(f"({response.url}) error {response.status}")
+        print(f"<{response.url}> error {response.status}")
         response.raise_for_status()
 
     async def _get_info(self):
@@ -122,21 +112,31 @@ class Instance:
                 else:
                     self._handle_error(response)
 
-    async def fetch_users(self):
-        self._init_session()
-        await self._get_info()
-        maxsize = 80
-        await gather(
-            *[
-                self._get_directory(offset, maxsize)
-                for offset in range(0, self.user_count, maxsize)
-            ]
-        )
-        await self._close_session()
+    async def fetch_users(self, create_session=True):
+        if create_session:
+            old_session = self._session
+            self._session = aiohttp.ClientSession(base_url=self._base_url)
+        try:
+            await self._get_info()
+            maxsize = 80
+            await gather(
+                *[
+                    self._get_directory(offset, maxsize)
+                    for offset in range(0, self.user_count, maxsize)
+                ]
+            )
+        finally:
+            if create_session:
+                await self._session.close()
+                self._session = old_session
 
-    async def build_graph(self):
-        self._init_session()
-        if self.users:
+    async def build_graph(self, create_session=True):
+        if create_session:
+            old_session = self._session
+            self._session = aiohttp.ClientSession(base_url=self._base_url)
+        try:
+            if not self.users:
+                await self.fetch_users(create_session=False)
             usernames = [
                 u
                 for u, v in self.users.items()
@@ -145,4 +145,7 @@ class Instance:
             for username in usernames:
                 self.users[username]["following"] = []
             await gather(*[self._get_following(username) for username in usernames])
-        await self._close_session()
+        finally:
+            if create_session:
+                await self._session.close()
+                self._session = old_session
