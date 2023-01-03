@@ -1,6 +1,6 @@
 # graphodon
 
-This project aims to reconstruct the graph of [Mastodon](https://joinmastodon.org/) users using only the [API](https://docs.joinmastodon.org/methods/).
+This project aims to reconstruct the social graph of [Mastodon](https://joinmastodon.org/) users using only the [API](https://docs.joinmastodon.org/methods/).
 
 ## Requirements
 
