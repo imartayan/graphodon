@@ -101,8 +101,8 @@ class Federation:
             run(self.load_domains())
         self.fetch(list(self.domains.keys()), cache_only=cache_only)
 
-    def merge_all(self):
+    def merge_all(self, cache_only=False):
         if not self.instances:
-            self.fetch_all()
+            self.fetch_all(cache_only=cache_only)
         for instance in self.instances.values():
             self.users |= instance.users
