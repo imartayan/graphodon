@@ -10,7 +10,7 @@ class Instance:
     def __init__(self, domain, debug=False):
         self.domain = domain
         self._base_url = "https://" + domain
-        self.debug = debug
+        self._debug = debug
         self.timestamp = datetime.now()
         self.user_count = None
         self.users = {}
@@ -45,13 +45,15 @@ class Instance:
 
     def _handle_error(self, response):
         print(f"<{response.url}> error {response.status}")
+        if response.status in {401, 429}:
+            return
         response.raise_for_status()
 
     async def _get_info(self):
         """
         https://docs.joinmastodon.org/methods/instance/#v1
         """
-        if self.debug:
+        if self._debug:
             print(f"({self.domain}) get info")
         url = self._endpoint("/api/v1/instance")
         async with self._throttler:
@@ -70,7 +72,7 @@ class Instance:
         """
         https://docs.joinmastodon.org/methods/directory/#get
         """
-        if self.debug:
+        if self._debug:
             print(f"({self.domain}) get dir {offset}")
         url = self._endpoint("/api/v1/directory")
         params = {"offset": offset, "limit": max_size, "order": "new", "local": "true"}
@@ -92,7 +94,7 @@ class Instance:
         """
         https://docs.joinmastodon.org/methods/accounts/#following
         """
-        if self.debug:
+        if self._debug:
             print(f"({self.domain}) get user {username}")
         user_id = self.users[username]["id"]
         url = self._endpoint("/api/v1/accounts/" + user_id + "/following")
